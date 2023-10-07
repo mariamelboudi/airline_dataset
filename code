@@ -1,0 +1,140 @@
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+
+airline = pd.read_csv('airline_dataset_v2.csv')
+print(airline.head())
+
+#Check for missing data
+print(airline.isnull().sum())
+print(airline.dtypes)
+
+#Summary statistics on all variables
+print(airline.describe(include='all'))
+
+#Convert the 'object' dtypes to 'category'
+
+print(airline.columns)
+
+airline_col = ['Gender', 'Age', 'Nationality', 'Airport Name', 'Airport Country Code', 'Country Name',
+       'Airport Continent', 'Continents', 'Departure Date', 'Arrival Airport', 'Pilot Name', 'Flight Status']
+
+for col in airline_col:
+    if airline[col].dtype == 'object':
+        airline[col] = airline[col].astype('category')
+        
+print(airline.dtypes)
+
+#Plot the counts for each variable
+airline_cat = ['Gender', 'Continents', 'Airport Continent', 'Flight Status']
+
+fig, axes = plt.subplots(len(airline_cat), 1, figsize=(8, 12))
+palette = sns.color_palette('pastel')
+for i, col in enumerate(airline_cat):
+    col_counts = airline[col].value_counts()
+    col_counts.plot(kind='bar', ax=axes[i], color=palette)
+    axes[i].set_xlabel(col)
+    axes[i].tick_params(axis='x', rotation=45)   
+plt.tight_layout()
+plt.show()
+
+#Check and clean the dates
+
+print(airline['Departure Date'])
+
+#The dates are not recorded in the same way. Let's correct this.
+airline['Departure Date'] = airline['Departure Date'].astype('string')
+print(airline['Departure Date'].dtype)
+
+airline['Departure Date'] = airline['Departure Date'].str.replace('/', '-')
+print(airline['Departure Date'])
+
+#Plot flights over time
+airline['Departure Date'] = pd.to_datetime(airline['Departure Date'])
+flights = airline['Departure Date'].value_counts().sort_index()  # Sort by date
+
+# Create the plot
+plt.figure(figsize=(10, 6))  # Adjust the figure size as needed
+plt.plot(flights.index, flights.values)
+plt.xlabel('Month')
+plt.ylabel('Number of Flights')
+plt.title('Number of Flights per Month in 2022')
+
+# Format the x-axis to display dates nicely
+plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%m'))  # Adjust the date format as needed
+
+plt.xticks(rotation=45)  # Rotate the x-axis labels for better readability
+plt.grid(True)  # Add gridlines if desired
+
+plt.tight_layout()
+plt.show()
+
+#Plot the flight counts per month by Continent. One subplot for each continent
+airline['Month'] = airline['Departure Date'].dt.month
+monthly_flights = airline[['Airport Continent', 'Month']]
+
+flights = monthly_flights.groupby(['Airport Continent', 'Month']).size().reset_index(name='Count')
+print(flights)
+
+# Get a list of unique airport continents (countries)
+continents = flights['Airport Continent'].unique()
+
+# Set the number of rows and columns for subplots
+num_rows = len(continents) // 2  # Assuming 2 columns
+num_cols = 2  # You can adjust the number of columns as needed
+fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 8), sharey=True)
+
+# Iterate through countries and create subplots
+for i, continent in enumerate(continents):
+    row = i // num_cols
+    col = i % num_cols
+    continent_data = flights[flights['Airport Continent'] == continent]
+    ax = axes[row, col]
+    ax.plot(continent_data['Month'], continent_data['Count'], alpha=0.7)
+    ax.set_xlabel('Month')
+    ax.set_ylabel('Number of Flights')
+    ax.set_title(f'Flight Counts for {continent}')
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    ax.set_xticks(continent_data['Month'])
+    ax.set_xticklabels(month_names)
+
+# Adjust layout
+plt.tight_layout()
+
+# Show the subplots
+plt.show()
+
+#Plot the flight status (on time/delayed/cancelled) counts per month by Continent. One subplot for each continent.
+
+monthly_flights = airline[['Airport Continent', 'Month']]
+print(monthly_flights.info())
+monthly_flights = monthly_flights.assign(Status=airline['Flight Status'])
+print(monthly_flights.info())
+
+flights = monthly_flights.groupby(['Airport Continent', 'Month', 'Status']).size().reset_index(name='Count')
+print(flights)
+
+# Set up the subplots
+num_rows = len(continents)
+fig, axes = plt.subplots(num_rows, 1, figsize=(10, 4*num_rows))
+pastel_palette = sns.color_palette("pastel")
+month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+for i, continent in enumerate(continents):
+    ax = axes[i]
+    data = flights[flights['Airport Continent'] == continent]
+    sns.barplot(data=data, x='Month', y='Count', hue='Status', ax=axes[i], palette=pastel_palette)
+    ax.set_xlabel('Month')
+    ax.set_ylabel('Count')
+    #ax.set_xticks(continent_data['Month'])
+    ax.set_xticklabels(month_names)
+    ax.set_title(f'Flight Status by Month for {continent}')
+    ax.legend(title='Flight Status')
+    ax.set_ylim(0, 1000)
+    
+    # Adjust the layout
+plt.tight_layout()
+
+# Show the subplots
+plt.show()
+
+#Further data needs to be collected to understand why flights are cancelled/delayed in order to improve overall performances
